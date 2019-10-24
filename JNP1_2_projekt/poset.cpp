@@ -5,8 +5,9 @@
 #include "poset.h"
 #include <cassert>
 #include <unordered_map>
+#include <map>
 
-using relation = std::pair<char const*, std::set<std::pair<char const*, bool>>>;
+using relation = std::map<char const*, std::set<std::map<char const*, bool>>>;
 using poset = std::set<relation>;
 using all_posets = std::unordered_map<unsigned long, poset>;
 
