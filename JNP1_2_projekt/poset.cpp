@@ -6,7 +6,7 @@
 #include <cassert>
 #include <unordered_map>
 
-using relation = std::pair<char const*, std::unordered_set<char const*>>;
+using relation = std::pair<char const*, std::set<std::pair<char const*, bool>>>;
 using poset = std::set<relation>;
 using all_posets = std::unordered_map<unsigned long, poset>;
 
@@ -47,7 +47,27 @@ size_t poset_size(unsigned long id) {
         poset p = posets[id];
         return p.size();
     }
+    assert(!poset_exists(id));
     return 0;
+}
+
+bool is_in_poset(const char* element, poset* p) {
+    for (auto &r : *p) {
+        if (r.first == element)
+            return true;
+    }
+    return false;
+}
+
+bool poset_insert(unsigned long id, char const *value) {
+    if (!poset_exists(id) || is_in_poset(value, &(posets[id])))
+        return false;
+    poset* p = &(posets[id]);
+    relation r;
+    r.first = value;
+    p->insert(r);
+    assert(is_in_poset(value, p));
+    return true;
 }
 
 
