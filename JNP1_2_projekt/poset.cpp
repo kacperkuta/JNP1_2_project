@@ -42,6 +42,12 @@ unsigned long poset_new() {
     return id;
 }
 
+void delete_poset(unsigned long id) {
+    if (poset_exists(id)) {
+        posets.erase(id);
+    }
+}
+
 size_t poset_size(unsigned long id) {
     if (poset_exists(id)) {
         poset p = posets[id];
@@ -68,6 +74,15 @@ bool poset_insert(unsigned long id, char const *value) {
     p->insert(r);
     assert(is_in_poset(value, p));
     return true;
+}
+
+bool poset_remove(unsigned long id, char const* value) {
+    if (!poset_exists(id) || !is_in_poset(value, &(posets[id])))
+        return false;
+
+    poset* p = &(posets[id]);
+    relation* r = p->find(value);
+    for ()
 }
 
 
