@@ -7,7 +7,8 @@
 #include <unordered_map>
 #include <map>
 
-using poset = std::map<char const*, std::map<char const*, bool>>;
+using relations = std::map<char const*, bool>;
+using poset = std::map<char const*, relations>;
 using all_posets = std::unordered_map<unsigned long, poset>;
 
 all_posets posets;
@@ -69,9 +70,7 @@ bool poset_insert(unsigned long id, char const *value) {
     if (!poset_exists(id) || is_in_poset(value, &(posets[id])))
         return false;
     poset* p = &(posets[id]);
-    relation r;
-    r.first = value;
-    p->insert(r);
+    p->insert(std::make_pair(value, std::map<char const*, bool>()));
     assert(is_in_poset(value, p));
     return true;
 }
@@ -81,7 +80,7 @@ bool poset_remove(unsigned long id, char const* value) {
         return false;
 
     poset* p = &(posets[id]);
-    relation* r = p->find(value);
+
     for ()
 }
 
