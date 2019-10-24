@@ -7,8 +7,7 @@
 #include <unordered_map>
 #include <map>
 
-using relation = std::map<char const*, std::set<std::map<char const*, bool>>>;
-using poset = std::set<relation>;
+using poset = std::map<char const*, std::map<char const*, bool>>;
 using all_posets = std::unordered_map<unsigned long, poset>;
 
 all_posets posets;
