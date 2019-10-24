@@ -4,10 +4,11 @@
 #include <queue>
 #include "poset.h"
 #include <cassert>
+#include <unordered_map>
 
 using relation = std::pair<char const*, std::unordered_set<char const*>>;
-using poset = std::pair<unsigned long, std::set<relation>>;
-using all_posets = std::set<poset>;
+using poset = std::set<relation>;
+using all_posets = std::unordered_map<unsigned long, poset>;
 
 all_posets posets;
 unsigned long free_ids_beg = 0;
@@ -15,11 +16,7 @@ std::queue<unsigned long> free_ids;
 
 
 bool poset_exists(unsigned long id) {
-    for (auto &p : posets) {
-        if (p.first == id)
-            return true;
-    }
-    return false;
+    return posets.find(id) != posets.end();
 }
 
 /*Jeżeli w zbiorze posetów wskazywanym przez posets istnieje poset o
@@ -40,27 +37,17 @@ unsigned long choose_new_id() {
 unsigned long poset_new() {
     poset p;
     unsigned long id = choose_new_id();
-    p.first = id;
-    posets.insert(p);
+    posets.insert(std::make_pair(id, p));
     assert(poset_exists(id));
     return id;
 }
-poset find_poset(unsigned long id) {
-    for (auto itr = posets.begin(); itr != posets.end(); itr++) {
-        if ((*itr).first == id)
-            return *itr;
-    }
-    return *(posets.end());
-}
-
-/*Znajduje poset o danym id, zwraca iterator do posets na niego, albo iterator
-  na koniec posets, gdy nie ma takiego posetu.*/
 
 size_t poset_size(unsigned long id) {
     if (poset_exists(id)) {
-        poset p = find_poset(id);
-
+        poset p = posets[id];
+        return p.size();
     }
+    return 0;
 }
 
 
