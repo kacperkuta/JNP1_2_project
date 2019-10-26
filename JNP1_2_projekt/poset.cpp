@@ -91,6 +91,103 @@ bool poset_remove(unsigned long id, char const* value) {
     return true;
 }
 
+// Narazie bez domknięcia przechodniego.
+bool poset_add(unsigned long id, char const *value1, char const *value2) {
+    if(!poset_exists(id) || !is_in_poset(value1, id) || !is_in_poset(value2, id))
+        return false;
+
+    if(poset_test(id, value1, value2))
+        return false;
+
+    poset* p = &(posets[id]);
+    string previous = value1;
+    string next = value2;
+
+    for(auto &[node, relation] : (*p)) {
+        if(previous.compare(node) == 0) {
+            relation.insert({next, 1});
+        }
+        if(next.compare(node) == 0) {
+            relation.insert({previous, 0});
+        }
+    }
+
+    assert(poset_test(id, value1, value2));
+    return true;
+}
+
+
+bool poset_del(unsigned long id, char const *value1, char const *value2) {
+    if(!poset_exists(id) || !is_in_poset(value1, id) || !is_in_poset(value2, id))
+        return false;
+
+    if(!poset_test(id, value1, value2))
+        return false;
+
+    poset* p = &(posets[id]);
+    string previous = value1;
+    string next = value2;
+
+    for(auto &[node, relation] : (*p)) {
+        if(previous.compare(node) == 0) {
+            for (auto &[name, direction] : relation) {
+                if(next.compare(name) == 0 && direction == 1) {
+                    relation.erase(name);
+                }
+            }
+        }
+
+        if(next.compare(node) == 0) {
+            for (auto &[name, direction] : relation) {
+                if(previous.compare(name) == 0 && direction == 0) {
+                    relation.erase(name);
+                }
+            }
+        }
+    }
+
+    assert(!poset_test(id, value1, value2));
+    return true;
+}
+
+
+bool poset_test(unsigned long id, char const *value1, char const *value2) {
+    if(!poset_exists(id) || !is_in_poset(value1, id) || !is_in_poset(value2, id))
+        return false;
+
+    poset p = posets[id];
+    string previous = value1;
+    string next = value2;
+
+    if(previous.compare(next) == 0)
+        return true;
+
+    for (auto &[node, relation] : p) {
+        if(previous.compare(node) == 0) {
+            for (auto &[name, direction] : relation) {
+                if(next.compare(name) == 0 && direction == 1)
+                    return true;
+            }
+        }
+    }
+    return false;
+}
+
+void poset_clear(unsigned long id) {
+    if(!poset_exists(id))
+        return;
+
+    poset* p = &(posets[id]);
+
+    for (auto &[node, relation] : (*p)) {
+        relation.clear();
+    }
+
+    (*p).clear();
+}
+/* Jeżeli istnieje poset o identyfikatorze id, usuwa wszystkie jego elementy
+ * oraz relacje między nimi, a w przeciwnym przypadku nic nie robi.*/
+
 
 int main() {
 
