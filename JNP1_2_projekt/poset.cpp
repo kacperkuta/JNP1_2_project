@@ -82,8 +82,8 @@ bool poset_remove(unsigned long id, char const* value) {
     relations r = posets[id][string(value)];
 
     for (auto &p : r) {
-            relations* pom = &(posets[id][p.first]);
-            (*pom).erase(string(value));
+        relations* pom = &(posets[id][p.first]);
+        (*pom).erase(string(value));
     }
     poset* p = &(posets[id]);
     p->erase(string(value));
