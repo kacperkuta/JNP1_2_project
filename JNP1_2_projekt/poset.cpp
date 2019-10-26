@@ -6,7 +6,7 @@
 #include <cassert>
 #include <unordered_map>
 #include <map>
-#include <string.h>
+#include <cstring>
 
 using string = std::string;
 
@@ -14,11 +14,13 @@ using relations = std::map<string, bool>;
 using poset = std::map<string, relations>;
 using all_posets = std::unordered_map<unsigned long, poset>;
 
+using namespace jnp1;
+
 all_posets posets;
 unsigned long free_ids_beg = 0;
 std::queue<unsigned long> free_ids;
 
-bool poset_exists(unsigned long id) {
+extern "C" bool poset_exists(unsigned long id) {
     return posets.find(id) != posets.end();
 }
 /* Jeżeli w zbiorze posetów wskazywanym przez posets istnieje poset o
@@ -35,7 +37,7 @@ unsigned long choose_new_id() {
 }
 /* Wybiera id dla nowego posetu spośród wolnych id.*/
 
-unsigned long poset_new() {
+extern "C" unsigned long poset_new() {
     poset p;
     unsigned long id = choose_new_id();
     posets.insert(std::make_pair(id, p));
@@ -43,14 +45,14 @@ unsigned long poset_new() {
     return id;
 }
 
-void poset_delete(unsigned long id) {
+extern "C" void poset_delete(unsigned long id) {
     if (poset_exists(id)) {
         posets.erase(id);
         free_ids.push(id);
     }
 }
 
-size_t poset_size(unsigned long id) {
+extern "C" size_t poset_size(unsigned long id) {
     if (poset_exists(id)) {
         poset p = posets[id];
         return p.size();
@@ -65,8 +67,8 @@ bool is_in_poset(const char* element, unsigned long id) {
 /* Sprawdza, czy napis wskazywany przez element jest w posecie id.
  * Jeżeli poset o danym id nie istnieje, zrwaca false. */
 
-bool poset_insert(unsigned long id, char const *value) {
-    if (!poset_exists(id) || is_in_poset(value, id))
+extern "C" bool poset_insert(unsigned long id, char const *value) {
+    if (value == nullptr || !poset_exists(id) || is_in_poset(value, id))
         return false;
     poset* p = &(posets[id]);
     std::string insert_value = string(value);
@@ -75,7 +77,7 @@ bool poset_insert(unsigned long id, char const *value) {
     return true;
 }
 
-bool poset_remove(unsigned long id, char const* value) {
+extern "C" bool poset_remove(unsigned long id, char const* value) {
     if (!poset_exists(id) || !is_in_poset(value, id))
         return false;
 
@@ -92,8 +94,9 @@ bool poset_remove(unsigned long id, char const* value) {
 }
 
 // Narazie bez domknięcia przechodniego.
-bool poset_add(unsigned long id, char const *value1, char const *value2) {
-    if(!poset_exists(id) || !is_in_poset(value1, id) || !is_in_poset(value2, id))
+extern "C" bool poset_add(unsigned long id, char const *value1, char const *value2) {
+    if(value1 == nullptr || value2 == nullptr || !poset_exists(id) ||
+            !is_in_poset(value1, id) || !is_in_poset(value2, id))
         return false;
 
     if(poset_test(id, value1, value2))
@@ -116,9 +119,9 @@ bool poset_add(unsigned long id, char const *value1, char const *value2) {
     return true;
 }
 
-
-bool poset_del(unsigned long id, char const *value1, char const *value2) {
-    if(!poset_exists(id) || !is_in_poset(value1, id) || !is_in_poset(value2, id))
+extern "C" bool poset_del(unsigned long id, char const *value1, char const *value2) {
+    if(value1 == nullptr || value2 == nullptr || !poset_exists(id) ||
+            !is_in_poset(value1, id) || !is_in_poset(value2, id))
         return false;
 
     if(!poset_test(id, value1, value2))
@@ -150,9 +153,9 @@ bool poset_del(unsigned long id, char const *value1, char const *value2) {
     return true;
 }
 
-
-bool poset_test(unsigned long id, char const *value1, char const *value2) {
-    if(!poset_exists(id) || !is_in_poset(value1, id) || !is_in_poset(value2, id))
+extern "C" bool poset_test(unsigned long id, char const *value1, char const *value2) {
+    if(value1 == nullptr || value2 == nullptr || !poset_exists(id) ||
+       !is_in_poset(value1, id) || !is_in_poset(value2, id))
         return false;
 
     poset p = posets[id];
@@ -173,7 +176,7 @@ bool poset_test(unsigned long id, char const *value1, char const *value2) {
     return false;
 }
 
-void poset_clear(unsigned long id) {
+extern "C" void poset_clear(unsigned long id) {
     if(!poset_exists(id))
         return;
 
@@ -182,12 +185,11 @@ void poset_clear(unsigned long id) {
     for (auto &[node, relation] : (*p)) {
         relation.clear();
     }
-
     (*p).clear();
 }
 /* Jeżeli istnieje poset o identyfikatorze id, usuwa wszystkie jego elementy
  * oraz relacje między nimi, a w przeciwnym przypadku nic nie robi.*/
-
+/*
 
 int main() {
 
@@ -207,6 +209,9 @@ int main() {
     assert(is_in_poset("marta", id));
     assert(poset_size(id)== 1);
 
+    poset_clear(id);
+    assert(poset_size(id) == 0);
+
     poset_delete(id);
     assert(!poset_exists(id));
 
@@ -222,3 +227,4 @@ int main() {
     assert(id3 == 0);
     return 0;
 }
+ */
