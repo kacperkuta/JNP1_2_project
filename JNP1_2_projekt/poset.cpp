@@ -112,13 +112,14 @@ extern "C" bool poset_remove(unsigned long id, char const* value) {
     return true;
 }
 
-// Narazie bez domknięcia przechodniego.
 extern "C" bool poset_add(unsigned long id, char const *value1, char const *value2) {
     if(value1 == nullptr || value2 == nullptr || !poset_exists(id) ||
             !is_in_poset(value1, id) || !is_in_poset(value2, id))
         return false;
 
     if(poset_test(id, value1, value2))
+        return false;
+    if(poset_test(id, value2, value1))
         return false;
 
     poset* p = &(posets[id]);
@@ -138,12 +139,24 @@ extern "C" bool poset_add(unsigned long id, char const *value1, char const *valu
     return true;
 }
 
+bool poset_test_direct(unsigned long id, char const *value1, char const *value2) {
+    string previous = value1;
+    string next = value2;
+    relations r = posets[id][previous];
+
+    for (auto &[name, direction] : r) {
+        if(next.compare(name) == 0 && direction == 1)
+            return true;
+    }
+    return false;
+}
+
 extern "C" bool poset_del(unsigned long id, char const *value1, char const *value2) {
     if(value1 == nullptr || value2 == nullptr || !poset_exists(id) ||
             !is_in_poset(value1, id) || !is_in_poset(value2, id))
         return false;
 
-    if(!poset_test(id, value1, value2))
+    if(!poset_test_direct(id, value1, value2))
         return false;
 
     poset* p = &(posets[id]);
@@ -229,6 +242,7 @@ extern "C" void poset_clear(unsigned long id) {
 }
 /* Jeżeli istnieje poset o identyfikatorze id, usuwa wszystkie jego elementy
  * oraz relacje między nimi, a w przeciwnym przypadku nic nie robi.*/
+
 
 
 int main() {
