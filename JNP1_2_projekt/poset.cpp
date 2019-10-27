@@ -77,9 +77,28 @@ extern "C" bool poset_insert(unsigned long id, char const *value) {
     return true;
 }
 
+
+//Dla wszystkich elementow mniejszych od value daje krawędź do wszystkich
+//elementów większych od value.
+void switch_edges(unsigned long id, char const* value) {
+    if (!poset_exists(id) || !is_in_poset(value, id))
+        return;
+
+    relations r = posets[id][string(value)];
+
+    for (auto &[name, direction] : r)
+        if(direction == 0)
+            for (auto &[name2, direction2] : r)
+                if(direction2 == 1)
+                    poset_add(id, name.c_str(), name2.c_str());
+
+}
+
 extern "C" bool poset_remove(unsigned long id, char const* value) {
     if (!poset_exists(id) || !is_in_poset(value, id))
         return false;
+
+    switch_edges(id, value);
 
     relations r = posets[id][string(value)];
 
@@ -131,6 +150,7 @@ extern "C" bool poset_del(unsigned long id, char const *value1, char const *valu
     string previous = value1;
     string next = value2;
 
+    //Usuwam krawędzie z previous do next i z next to previous.
     for(auto &[node, relation] : (*p)) {
         if(previous.compare(node) == 0) {
             for (auto &[name, direction] : relation) {
@@ -149,8 +169,42 @@ extern "C" bool poset_del(unsigned long id, char const *value1, char const *valu
         }
     }
 
+    //Dla każdego wierzchołka który prowadzi do previous, dodaje krawędź
+    //prowadzącą do next, żeby nie przerwać przechodniości
+    for(auto &[node, relation] : (*p)) {
+        if(previous.compare(node) == 0) {
+            for (auto &[name, direction] : relation) {
+                if(direction == 0) {
+                    poset_add(id, name.c_str(), next.c_str());
+                }
+            }
+        }
+    }
+
     assert(!poset_test(id, value1, value2));
     return true;
+}
+
+bool test_DFS(unsigned long id, char const *value1, char const *value2) {
+    string previous = value1;
+    string next = value2;
+    if(previous.compare(next)  == 0)
+        return true;
+
+    relations r = posets[id][previous];
+    for (auto &[name, direction] : r) {
+        if(next.compare(name) == 0 && direction == 1)
+            return true;
+    }
+
+    for (auto &[name, direction] : r) {
+        if(direction == 1) {
+            if(test_DFS(id, name.c_str(), value2))
+                return true;
+        }
+    }
+
+    return false;
 }
 
 extern "C" bool poset_test(unsigned long id, char const *value1, char const *value2) {
@@ -158,22 +212,7 @@ extern "C" bool poset_test(unsigned long id, char const *value1, char const *val
        !is_in_poset(value1, id) || !is_in_poset(value2, id))
         return false;
 
-    poset p = posets[id];
-    string previous = value1;
-    string next = value2;
-
-    if(previous.compare(next) == 0)
-        return true;
-
-    for (auto &[node, relation] : p) {
-        if(previous.compare(node) == 0) {
-            for (auto &[name, direction] : relation) {
-                if(next.compare(name) == 0 && direction == 1)
-                    return true;
-            }
-        }
-    }
-    return false;
+    return test_DFS(id, value1, value2);
 }
 
 extern "C" void poset_clear(unsigned long id) {
@@ -182,14 +221,15 @@ extern "C" void poset_clear(unsigned long id) {
 
     poset* p = &(posets[id]);
 
-    for (auto &[node, relation] : (*p)) {
-        relation.clear();
+    for (auto &r : (*p)) {
+        r.second.clear();
     }
+
     (*p).clear();
 }
 /* Jeżeli istnieje poset o identyfikatorze id, usuwa wszystkie jego elementy
  * oraz relacje między nimi, a w przeciwnym przypadku nic nie robi.*/
-/*
+
 
 int main() {
 
@@ -227,4 +267,3 @@ int main() {
     assert(id3 == 0);
     return 0;
 }
- */
