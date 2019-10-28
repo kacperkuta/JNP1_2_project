@@ -11,7 +11,7 @@
 using string = std::string;
 
 using relations = std::map<string, bool>;
-using poset = std::map<string, relations>;
+using poset = std::unordered_map<string, relations>;
 using all_postes = std::unordered_map<unsigned long, poset>;
 
 unsigned long free_ids_beg = 0;
@@ -255,13 +255,36 @@ extern "C" {
     }
 }
 
-
-
 int main() {
 
+    unsigned long id = poset_new();
 
+    for (int i = 0; i < 128; i++) {
+        string s = string(1, (char(i)));
+        poset_insert(id, s.c_str());
 
+        if (i == 0)
+            continue;
+        poset_add(id, string(1, (char(i-1))).c_str(),s.c_str());
+    }
 
+    assert(poset_test(id, "a", "a"));
+    /*
+    for (int i = 0; i < 128; i++) {
+        for (int j = i + 1; j < 128; j++) {
+            assert(poset_del(id, string(1, (char(i))).c_str(), string(1, (char
+                    (j)))
+                    .c_str()));
+        }
+    }
 
+    for (int i = 0; i < 128; i++) {
+        for (int j = i + 1; j < 128; j++) {
+            assert(!poset_test(id, string(1, (char(i))).c_str(), string(1, (char
+                    (j)))
+                    .c_str()));
+        }
+    }
+     */
     return 0;
 }
