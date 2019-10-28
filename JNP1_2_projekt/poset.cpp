@@ -13,7 +13,7 @@ using string = std::string;
 using relations = std::map<string, bool>;
 using poset = std::map<string, relations>;
 using all_postes = std::unordered_map<unsigned long, poset>;
-//
+
 unsigned long free_ids_beg = 0;
 
 namespace {
