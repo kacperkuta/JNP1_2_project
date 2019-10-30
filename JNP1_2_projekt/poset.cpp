@@ -12,31 +12,34 @@ using string = std::string;
 
 using relations = std::map<string, bool>;
 using poset = std::unordered_map<string, relations>;
-using all_postes = std::unordered_map<unsigned long, poset>;
-
-unsigned long free_ids_beg = 0;
+using all_posets = std::unordered_map<unsigned long, poset>;
 
 namespace {
+    unsigned long& the_free_ids_beg() {
+        static unsigned long free_ids_beg = 0;
+        return free_ids_beg;
+    }
+
     std::queue<unsigned long> &the_free_ids() {
         static std::queue<unsigned long> free_ids;
         return free_ids;
     }
 
-    all_postes &the_postes() {
-        static all_postes posets;
+    all_posets &the_posets() {
+        static all_posets posets;
         return posets;
     }
 
     bool poset_exists(unsigned long id) {
-        return the_postes().find(id) != the_postes().end();
+        return the_posets().find(id) != the_posets().end();
     }
-    /* Jeżeli w zbiorze posetów wskazywanym przez the_postes() istnieje poset o
+    /* Jeżeli w zbiorze posetów wskazywanym przez the_posets() istnieje poset o
     * danym przez id identyfikatorze, zwraca true. False wpp.*/
 
     unsigned long choose_new_id() {
         if (the_free_ids().empty()) {
-            free_ids_beg++;
-            return free_ids_beg - 1;
+            the_free_ids_beg()++;
+            return the_free_ids_beg() - 1;
         }
         unsigned long id = the_free_ids().front();
         the_free_ids().pop();
@@ -45,7 +48,7 @@ namespace {
     /* Wybiera id dla nowego posetu spośród wolnych id.*/
 
     bool is_in_poset(const char *element, unsigned long id) {
-        return poset_exists(id) && the_postes()[id].count(string(element)) > 0;
+        return poset_exists(id) && the_posets()[id].count(string(element)) > 0;
     }
     /* Sprawdza, czy napis wskazywany przez element jest w posecie id.
     * Jeżeli poset o danym id nie istnieje, zrwaca false. */
@@ -54,7 +57,7 @@ namespace {
         if (!poset_exists(id) || !is_in_poset(value, id))
             return;
 
-        relations r = the_postes()[id][string(value)];
+        relations r = the_posets()[id][string(value)];
 
         for (auto &[name, direction] : r)
             if (direction == 0)
@@ -72,7 +75,7 @@ namespace {
         if (previous.compare(next) == 0)
             return true;
 
-        relations r = the_postes()[id][previous];
+        relations r = the_posets()[id][previous];
         for (auto &[name, direction] : r) {
             if (next.compare(name) == 0 && direction == 1)
                 return true;
@@ -95,7 +98,7 @@ namespace {
                            char const *value2) {
         string previous = value1;
         string next = value2;
-        relations r = the_postes()[id][previous];
+        relations r = the_posets()[id][previous];
 
         for (auto &[name, direction] : r) {
             if (next.compare(name) == 0 && direction == 1)
@@ -104,77 +107,50 @@ namespace {
         return false;
     }
     /* Sprawdza czy value2 jest bezpośrednim następnikiem value1.*/
-}
 
-extern "C" {
-    unsigned long poset_new() {
-        poset p;
-        unsigned long id = choose_new_id();
-        the_postes().insert(std::make_pair(id, p));
-        assert(poset_exists(id));
-        return id;
-    }
+    bool check_inquiry_correctness(string inquiry_name, unsigned long id,
+            char const *value1, char const *value2) {
 
-    void poset_delete(unsigned long id) {
-        if (poset_exists(id)) {
-            the_postes().erase(id);
-            the_free_ids().push(id);
-        }
-    }
+        std::cerr << inquiry_name << "(" << id << ", \""
+        << ((value1 == nullptr) ? "NULL" : string(value1))
+        << "\", \""
+        << ((value2 == nullptr) ? "NULL" : string(value2)) << "\")\n";
 
-    size_t poset_size(unsigned long id) {
-        if (poset_exists(id)) {
-            poset p = the_postes()[id];
-            return p.size();
-        }
-        assert(!poset_exists(id));
-        return 0;
-    }
-
-    bool poset_insert(unsigned long id, char const *value) {
-        if (value == nullptr || !poset_exists(id) || is_in_poset(value, id))
+        if (!poset_exists(id)) {
+            std::cerr << inquiry_name << ": poset " << id
+                      << " does not exist\n";
             return false;
-        poset *p = &(the_postes()[id]);
-        std::string insert_value = string(value);
-        p->insert(std::make_pair(insert_value, std::map<string, bool>()));
-        assert(is_in_poset(value, id));
+        } else if (value1 == nullptr) {
+            std::cerr << inquiry_name << ": invalid value1 (NULL)\n";
+            if (value2 != nullptr)
+                return false;
+        }
+        if (value2 == nullptr) {
+            std::cerr << inquiry_name << ": invalid value2 (NULL)\n";
+            return false;
+        } else if (!is_in_poset(value1, id) || !is_in_poset(value2, id)) {
+            std::cerr << inquiry_name << ": poset " << id << ", element \""
+            << string(value1) << "\" or \"" << string(value2) <<
+            "\" does not exist\n";
+            return false;
+        }
         return true;
     }
 
-    bool poset_remove(unsigned long id, char const *value) {
-        if (!poset_exists(id) || !is_in_poset(value, id))
-            return false;
-
-        switch_edges(id, value);
-
-        relations r = the_postes()[id][string(value)];
-
-        for (auto &p : r) {
-            relations *pom = &(the_postes()[id][p.first]);
-            (*pom).erase(string(value));
-        }
-        poset *p = &(the_postes()[id]);
-        p->erase(string(value));
-        assert(!is_in_poset(value, id));
-        return true;
-    }
-
-    bool poset_add(unsigned long id, char const *value1, char const *value2) {
+    bool poset_test_no_cerr(unsigned long id, char const *value1,
+            char const *value2) {
         if (value1 == nullptr || value2 == nullptr || !poset_exists(id) ||
-            !is_in_poset(value1, id) || !is_in_poset(value2, id))
+                !is_in_poset(value1, id) || !is_in_poset(value2, id))
             return false;
+        return test_DFS(id, value1, value2);
+    }
 
-        if (jnp1::poset_test(id, value1, value2))
-            return false;
-        if (jnp1::poset_test(id, value2, value1))
-            return false;
+    void poset_add_no_cerr(unsigned long id, const char* value1,
+            const char* value2) {
+        poset *p = &(the_posets()[id]);
 
-        poset *p = &(the_postes()[id]);
         string previous = value1;
         string next = value2;
-
-        if (previous.compare(next) == 0)
-            return false;
 
         for (auto &[node, relation] : (*p)) {
             if (previous.compare(node) == 0) {
@@ -184,31 +160,141 @@ extern "C" {
                 relation.insert({previous, 0});
             }
         }
+        assert(poset_test_no_cerr(id, value1, value2));
+    }
+}
 
-        assert(jnp1::poset_test(id, value1, value2));
+extern "C" {
+    unsigned long poset_new() {
+        std::cerr << "poset_new()\n";
+        poset p;
+        unsigned long id = choose_new_id();
+        the_posets().insert(std::make_pair(id, p));
+        assert(poset_exists(id));
+        std::cerr << "poset_new: poset " << id << " created\n";
+        return id;
+    }
+
+    void poset_delete(unsigned long id) {
+        std::cerr << "poset_delete(" << id << ")\n";
+        if (poset_exists(id)) {
+            the_posets().erase(id);
+            the_free_ids().push(id);
+            std::cerr << "poset_delete: poset " << id << " deleted\n";
+        } else {
+            std::cerr << "poset_delete: poset " << id << " does not exist\n";
+        }
+    }
+
+    size_t poset_size(unsigned long id) {
+        std::cerr << "poset_size(" << id << ")\n";
+        if (poset_exists(id)) {
+            poset p = the_posets()[id];
+
+            std::cerr << "poset_size: poset " << id << " contains " << p.size()
+            << " element(s)\n";
+
+            return p.size();
+        }
+        assert(!poset_exists(id));
+        std::cerr << "poset_size: poset " << id << " does not exist\n";
+        return 0;
+    }
+
+    bool poset_insert(unsigned long id, char const *value) {
+        std::cerr << "poset_insert(" << id << ", \"" << ((value == nullptr)?
+        "NULL" : string(value)) << "\")\n";
+        if (value == nullptr) {
+            std::cerr << "poset_insert: invalid value (NULL)\n";
+            return false;
+        } else if (!poset_exists(id)) {
+            std::cerr << "poset_insert: poset " << id << " does not exist\n";
+            return false;
+        } else if (is_in_poset(value, id)) {
+            std::cerr << "poset_insert: poset " << id << ", element \"" <<
+            string(value) << "\" already exists\n";
+            return false;
+        }
+        poset *p = &(the_posets()[id]);
+        string insert_value = string(value);
+        p->insert(std::make_pair(insert_value, std::map<string, bool>()));
+        assert(is_in_poset(value, id));
+        std::cerr << "poset_insert: poset " << id << ", element \"" <<
+        string(value) << "\" inserted\n";
+        return true;
+    }
+
+    bool poset_remove(unsigned long id, char const *value) {
+        std::cerr << "poset_remove(" << id << ", \""
+        << ((value == nullptr) ? "NULL" : string(value)) << "\")\n";
+
+        if (!poset_exists(id)) {
+            std::cerr << "poset_remove: poset " << id << " does not exist\n";
+            return false;
+        } else if (value == nullptr) {
+            std::cerr << "poset_remove: invalid value (NULL)\n";
+            return false;
+        } else if (!is_in_poset(value, id)) {
+            std::cerr << "poset_remove: poset " << id << ", element \"" <<
+            string(value) << "\" does not exist\n";
+            return false;
+        }
+        switch_edges(id, value);
+
+        relations r = the_posets()[id][string(value)];
+
+        for (auto &p : r) {
+            relations *pom = &(the_posets()[id][p.first]);
+            (*pom).erase(string(value));
+        }
+        poset *p = &(the_posets()[id]);
+        p->erase(string(value));
+        assert(!is_in_poset(value, id));
+        std::cerr << "poset_remove: poset " << id << ", element \"" <<
+        string(value) << "\" removed\n";
+        return true;
+    }
+
+    bool poset_add(unsigned long id, char const *value1, char const *value2) {
+        if (!check_inquiry_correctness("poset_add", id, value1, value2))
+            return false;
+
+        if (poset_test_no_cerr(id, value1, value2) ||
+                poset_test_no_cerr(id, value2, value1)) {
+            std::cerr << "poset_add: poset " << id << ", relation (\"" <<
+            string(value1) << "\", \"" << string(value2)
+            << "\") cannot be added\n";
+            return false;
+        }
+
+        poset_add_no_cerr(id, value1, value2);
+
+        std::cerr << "poset_add: poset " << id << ", relation (\"" <<
+                  string(value1) << "\", \"" << string(value2) << "\") added\n";
         return true;
     }
 
     bool poset_del(unsigned long id, char const *value1, char const *value2) {
-        if (value1 == nullptr || value2 == nullptr || !poset_exists(id) ||
-            !is_in_poset(value1, id) || !is_in_poset(value2, id))
+        if (!check_inquiry_correctness("poset_del", id, value1, value2))
             return false;
 
-        if (!poset_test_direct(id, value1, value2))
-            return false;
-
-        poset *p = &(the_postes()[id]);
         string previous = value1;
         string next = value2;
 
-        if (previous.compare(next) == 0)
+        if (!poset_test_direct(id, value1, value2) || previous == next) {
+            std::cerr << "poset_del: poset " << id << ", relation (\"" <<
+            string(value1) << "\", \"" << string(value2)
+            << "\") cannot be deleted\n";
             return false;
+        }
+        poset *p = &(the_posets()[id]);
 
         //Usuwam krawędzie z previous do next i z next to previous.
         auto it_poset = (*p).find(previous);
         if (it_poset != (*p).end()) {
 			auto it_relation = it_poset->second.find(next);
-			if (it_relation != it_poset->second.end() && it_relation->second == 1) {
+			if (it_relation != it_poset->second.end() && 
+			        it_relation->second == 1) {
 				it_poset->second.erase(it_relation->first);
 			}
 		}
@@ -216,7 +302,8 @@ extern "C" {
 		it_poset = (*p).find(next);
         if (it_poset != (*p).end()) {
 			auto it_relation = it_poset->second.find(previous);
-			if (it_relation != it_poset->second.end() && it_relation->second == 0) {
+			if (it_relation != it_poset->second.end() && 
+			        it_relation->second == 0) {
 				it_poset->second.erase(it_relation->first);
 			}
 		}
@@ -227,68 +314,45 @@ extern "C" {
         if (it_poset != (*p).end()) {
             for (auto &[name, direction] : it_poset->second) {
                 if (direction == 1) {
-                    poset_add(id, previous.c_str(), name.c_str());
+                    poset_add_no_cerr(id, previous.c_str(), name.c_str());
                 }
             }
         }
 
-        assert(!jnp1::poset_test(id, value1, value2));
+        assert(!poset_test_no_cerr(id, value1, value2));
+        std::cerr << "poset_del: poset " << id << ", relation (\"" <<
+                  string(value1) << "\", \"" << string(value2)
+                  << "\") deleted\n";
         return true;
     }
 
     bool poset_test(unsigned long id, char const *value1, char const *value2) {
-        if (value1 == nullptr || value2 == nullptr || !poset_exists(id) ||
-            !is_in_poset(value1, id) || !is_in_poset(value2, id))
+        if (!check_inquiry_correctness("poset_test", id, value1, value2))
             return false;
 
-        return test_DFS(id, value1, value2);
+        bool result =  test_DFS(id, value1, value2);
+        std::cerr << "poset_test: poset " << id << ", relation (\""
+        << string(value1) << "\", \"" << string(value2) << "\") "
+        << (result ? "exists\n" : "does not exist\n");
+        return result;
     }
 
     void poset_clear(unsigned long id) {
-        if (!poset_exists(id))
+        std::cerr << "poset_clear(" << id << ")\n";
+        if (!poset_exists(id)) {
+            std::cerr << "poset_clear: poset " << id << " does not exist\n";
             return;
+        }
 
-        poset *p = &(the_postes()[id]);
+        poset *p = &(the_posets()[id]);
 
         for (auto &r : (*p)) {
             r.second.clear();
         }
-
         (*p).clear();
+        assert(poset_exists(id) && p->empty());
+        std::cerr << "poset_clear: poset " << id << " cleared\n";
     }
 }
 
 
-int main() {
-
-    unsigned long id = poset_new();
-
-    for (int i = 0; i < 128; i++) {
-        string s = string(1, (char(i)));
-        poset_insert(id, s.c_str());
-
-        if (i == 0)
-            continue;
-        poset_add(id, string(1, (char(i-1))).c_str(),s.c_str());
-    }
-
-    assert(poset_test(id, "a", "a"));
-    /*
-    for (int i = 0; i < 128; i++) {
-        for (int j = i + 1; j < 128; j++) {
-            assert(poset_del(id, string(1, (char(i))).c_str(), string(1, (char
-                    (j)))
-                    .c_str()));
-        }
-    }
-
-    for (int i = 0; i < 128; i++) {
-        for (int j = i + 1; j < 128; j++) {
-            assert(!poset_test(id, string(1, (char(i))).c_str(), string(1, (char
-                    (j)))
-                    .c_str()));
-        }
-    }
-     */
-    return 0;
-}
