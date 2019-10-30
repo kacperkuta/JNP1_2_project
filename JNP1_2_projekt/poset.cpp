@@ -30,9 +30,8 @@ namespace {
     bool poset_exists(unsigned long id) {
         return the_postes().find(id) != the_postes().end();
     }
-
-/* Jeżeli w zbiorze posetów wskazywanym przez the_postes() istnieje poset o
- * danym przez id identyfikatorze, zwraca true. False wpp.*/
+    /* Jeżeli w zbiorze posetów wskazywanym przez the_postes() istnieje poset o
+    * danym przez id identyfikatorze, zwraca true. False wpp.*/
 
     unsigned long choose_new_id() {
         if (the_free_ids().empty()) {
@@ -43,15 +42,13 @@ namespace {
         the_free_ids().pop();
         return id;
     }
-
-/* Wybiera id dla nowego posetu spośród wolnych id.*/
+    /* Wybiera id dla nowego posetu spośród wolnych id.*/
 
     bool is_in_poset(const char *element, unsigned long id) {
         return poset_exists(id) && the_postes()[id].count(string(element)) > 0;
     }
-
-/* Sprawdza, czy napis wskazywany przez element jest w posecie id.
- * Jeżeli poset o danym id nie istnieje, zrwaca false. */
+    /* Sprawdza, czy napis wskazywany przez element jest w posecie id.
+    * Jeżeli poset o danym id nie istnieje, zrwaca false. */
 
     void switch_edges(unsigned long id, char const *value) {
         if (!poset_exists(id) || !is_in_poset(value, id))
@@ -66,9 +63,8 @@ namespace {
                         jnp1::poset_add(id, name.c_str(), name2.c_str());
 
     }
-
-/*Dla wszystkich elementow mniejszych od value daje krawędź do wszystkich
- *elementów większych od value.*/
+    /* Dla wszystkich poprzedników value daje krawędź do wszystkich
+    *  jego następników.*/
 
     bool test_DFS(unsigned long id, char const *value1, char const *value2) {
         string previous = value1;
@@ -91,6 +87,9 @@ namespace {
 
         return false;
     }
+    /* Funkcja potrzebna do wykonania poset_test. Przechodzi poset
+    *  rekurencyjnie (tak jak DFS) w celu sprawdzenia czy istnieje
+    *  połączenie z value1 do value2.*/
 
     bool poset_test_direct(unsigned long id, char const *value1,
                            char const *value2) {
@@ -104,6 +103,7 @@ namespace {
         }
         return false;
     }
+    /* Sprawdza czy value2 jest bezpośrednim następnikiem value1.*/
 }
 
 extern "C" {
@@ -173,6 +173,9 @@ extern "C" {
         string previous = value1;
         string next = value2;
 
+        if (previous.compare(next) == 0)
+            return false;
+
         for (auto &[node, relation] : (*p)) {
             if (previous.compare(node) == 0) {
                 relation.insert({next, 1});
@@ -198,33 +201,33 @@ extern "C" {
         string previous = value1;
         string next = value2;
 
+        if (previous.compare(next) == 0)
+            return false;
+
         //Usuwam krawędzie z previous do next i z next to previous.
-        for (auto &[node, relation] : (*p)) {
-            if (previous.compare(node) == 0) {
-                for (auto &[name, direction] : relation) {
-                    if (next.compare(name) == 0 && direction == 1) {
-                        relation.erase(name);
-                    }
-                }
-            }
+        auto it_poset = (*p).find(previous);
+        if (it_poset != (*p).end()) {
+			auto it_relation = it_poset->second.find(next);
+			if (it_relation != it_poset->second.end() && it_relation->second == 1) {
+				it_poset->second.erase(it_relation->first);
+			}
+		}
 
-            if (next.compare(node) == 0) {
-                for (auto &[name, direction] : relation) {
-                    if (previous.compare(name) == 0 && direction == 0) {
-                        relation.erase(name);
-                    }
-                }
-            }
-        }
+		it_poset = (*p).find(next);
+        if (it_poset != (*p).end()) {
+			auto it_relation = it_poset->second.find(previous);
+			if (it_relation != it_poset->second.end() && it_relation->second == 0) {
+				it_poset->second.erase(it_relation->first);
+			}
+		}
 
-        //Dla każdego wierzchołka który prowadzi do previous, dodaje krawędź
-        //prowadzącą do next, żeby nie przerwać przechodniości
-        for (auto &[node, relation] : (*p)) {
-            if (previous.compare(node) == 0) {
-                for (auto &[name, direction] : relation) {
-                    if (direction == 0) {
-                        poset_add(id, name.c_str(), next.c_str());
-                    }
+        //Dla każdego wierzchołka do którego prowadzi krawędź z next, dodaje
+        //krawędź prowadzącą od previous, żeby nie przerwać przechodniości
+        it_poset = (*p).find(next);
+        if (it_poset != (*p).end()) {
+            for (auto &[name, direction] : it_poset->second) {
+                if (direction == 1) {
+                    poset_add(id, previous.c_str(), name.c_str());
                 }
             }
         }
@@ -254,6 +257,7 @@ extern "C" {
         (*p).clear();
     }
 }
+
 
 int main() {
 
