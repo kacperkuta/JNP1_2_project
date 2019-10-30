@@ -1,8 +1,6 @@
-#include <iostream>
-#include <unordered_set>
-#include <set>
-#include <queue>
 #include "poset.h"
+
+#include <queue>
 #include <cassert>
 #include <unordered_map>
 #include <map>
