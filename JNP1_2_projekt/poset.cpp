@@ -7,12 +7,10 @@
 #include <map>
 #include <cstring>
 
-
 using string = std::string;
 using relations = std::map<long long, bool>;
 using poset = std::unordered_map<long long, relations>;
 using all_posets = std::unordered_map<unsigned long, poset>;
-
 
 #ifdef NDEBUG
 bool debug = {false};
