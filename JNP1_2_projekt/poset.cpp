@@ -97,19 +97,24 @@ namespace {
     *  rekurencyjnie (tak jak DFS) w celu sprawdzenia czy istnieje
     *  połączenie z value1 do value2.*/
 
-    bool poset_test_direct(unsigned long id, char const *value1,
-                           char const *value2) {
+    bool poset_test_transitive(unsigned long id, char const *value1,
+                               char const *value2) {
         string previous = value1;
         string next = value2;
         relations r = the_posets()[id][previous];
 
         for (auto &[name, direction] : r) {
-            if (next.compare(name) == 0 && direction == 1)
-                return true;
+            if (direction == 1 && name != next) {
+                if (test_DFS(id, name.c_str(), value2)) {
+                    return false;
+                }
+            }
         }
-        return false;
+
+        return true;
     }
-    /* Sprawdza czy value2 jest bezpośrednim następnikiem value1.*/
+    /* Sprawdza czy usuniecie relacji value1 -> value2 przerwie przechodniosc
+    *  zwraca true, jesli relacje można usunac*/
 
     bool check_inquiry_correctness(string inquiry_name, unsigned long id,
             char const *value1, char const *value2) {
@@ -169,6 +174,30 @@ namespace {
     }
     /* Dodaje relację między istniejącymi elementami posetu. Nie wypisuje na
      * cerr informacji diagnostycznych.*/
+
+    void remove_edge(unsigned long id, const char* value1, const char* value2) {
+        poset *p = &(the_posets()[id]);
+        string previous = value1;
+        string next = value2;
+
+        //Usuwa krawędź z previous do next.
+        auto it_poset = (*p).find(previous);
+        if (it_poset != (*p).end()) {
+            auto it_relation = it_poset->second.find(next);
+            if (it_relation != it_poset->second.end() && it_relation->second == 1) {
+                it_poset->second.erase(it_relation->first);
+            }
+        }
+        //Usuwa krawędź z next do previous.
+        it_poset = (*p).find(next);
+        if (it_poset != (*p).end()) {
+            auto it_relation = it_poset->second.find(previous);
+            if (it_relation != it_poset->second.end() && it_relation->second == 0) {
+                it_poset->second.erase(it_relation->first);
+            }
+        }
+    }
+    /*Usuwa krawędź z value1 do value2, nie sprawdza czy taka krawędź istnieje.*/
 }
 
 /* Przestrzeń nazw zawierająca funkcje wypisujące na standardowe wyjście
@@ -379,42 +408,15 @@ extern "C" {
         string previous = value1;
         string next = value2;
 
-        if (!poset_test_direct(id, value1, value2) || previous == next) {
+        if (!poset_test_transitive(id, value1, value2) ||
+            !test_DFS(id, value1, value2) || string(value1) == string(value2)) {
             log::poset_add_remove_failure(id, value1, value2,
                                           "poset_del", "deleted");
             return false;
         }
-        poset *p = &(the_posets()[id]);
 
         //Usuwam krawędzie z previous do next i z next to previous.
-        auto it_poset = (*p).find(previous);
-        if (it_poset != (*p).end()) {
-			auto it_relation = it_poset->second.find(next);
-			if (it_relation != it_poset->second.end() && 
-			        it_relation->second == 1) {
-				it_poset->second.erase(it_relation->first);
-			}
-		}
-
-		it_poset = (*p).find(next);
-        if (it_poset != (*p).end()) {
-			auto it_relation = it_poset->second.find(previous);
-			if (it_relation != it_poset->second.end() && 
-			        it_relation->second == 0) {
-				it_poset->second.erase(it_relation->first);
-			}
-		}
-
-        //Dla każdego wierzchołka do którego prowadzi krawędź z next, dodaje
-        //krawędź prowadzącą od previous, żeby nie przerwać przechodniości
-        it_poset = (*p).find(next);
-        if (it_poset != (*p).end()) {
-            for (auto &[name, direction] : it_poset->second) {
-                if (direction == 1) {
-                    poset_add(id, previous.c_str(), name.c_str());
-                }
-            }
-        }
+        remove_edge(id, value1, value2);
 
         assert(!test_DFS(id, value1, value2));
         log::poset_add_remove_success(id, value1, value2,
