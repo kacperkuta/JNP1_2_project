@@ -410,7 +410,7 @@ extern "C" {
         string next = value2;
 
         if (!poset_test_transitive(id, value1, value2) ||
-            !test_DFS(id, value1, value2) || string(value1) == string(value2)) {
+            !test_DFS(id, value1, value2) || previous == next) {
             log::poset_add_remove_failure(id, value1, value2,
                                           "poset_del", "deleted");
             return false;
@@ -418,6 +418,18 @@ extern "C" {
 
         //Usuwam krawędzie z previous do next i z next to previous.
         remove_edge(id, value1, value2);
+        
+        poset *p = &(the_posets()[id]);
+        //Dla każdego wierzchołka do którego prowadzi krawędź z next, dodaje
+        //krawędź prowadzącą od previous, żeby nie przerwać przechodniości
+        auto it_poset = (*p).find(next);
+        if (it_poset != (*p).end()) {
+            for (auto &[name, direction] : it_poset->second) {
+                if (direction == 1) {
+                    poset_add(id, previous.c_str(), name.c_str());
+                }
+            }
+        }
 
         assert(!test_DFS(id, value1, value2));
         log::poset_add_remove_success(id, value1, value2,
