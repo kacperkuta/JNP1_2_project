@@ -58,22 +58,6 @@ namespace {
     /* Sprawdza, czy napis wskazywany przez element jest w posecie id.
     * Jeżeli poset o danym id nie istnieje, zrwaca false. */
 
-    void switch_edges(unsigned long id, char const *value) {
-        if (!poset_exists(id) || !is_in_poset(value, id))
-            return;
-
-        relations r = the_posets()[id][string(value)];
-
-        for (auto &[name, direction] : r)
-            if (direction == 0)
-                for (auto &[name2, direction2] : r)
-                    if (direction2 == 1)
-                        jnp1::poset_add(id, name.c_str(), name2.c_str());
-
-    }
-    /* Dla wszystkich poprzedników value daje krawędź do wszystkich
-    *  jego następników.*/
-
     bool test_DFS(unsigned long id, char const *value1, char const *value2) {
         string previous = value1;
         string next = value2;
@@ -175,6 +159,22 @@ namespace {
     }
     /* Dodaje relację między istniejącymi elementami posetu. Nie wypisuje na
      * cerr informacji diagnostycznych.*/
+
+    void switch_edges(unsigned long id, char const *value) {
+        if (!poset_exists(id) || !is_in_poset(value, id))
+            return;
+
+        relations r = the_posets()[id][string(value)];
+
+        for (auto &[name, direction] : r)
+            if (direction == 0)
+                for (auto &[name2, direction2] : r)
+                    if (direction2 == 1)
+                        poset_add_no_cerr(id, name.c_str(), name2.c_str());
+
+    }
+    /* Dla wszystkich poprzedników value daje krawędź do wszystkich
+    *  jego następników.*/
 
     void remove_edge(unsigned long id, const char* value1, const char* value2) {
         poset *p = &(the_posets()[id]);
@@ -401,7 +401,6 @@ extern "C" {
             log::poset_remove_no_element(id, value);
             return false;
         }
-        switch_edges(id, value);
 
         relations r = the_posets()[id][string(value)];
 
@@ -409,6 +408,7 @@ extern "C" {
             relations *pom = &(the_posets()[id][p.first]);
             (*pom).erase(string(value));
         }
+        switch_edges(id, value);
         poset *p = &(the_posets()[id]);
         p->erase(string(value));
         assert(!is_in_poset(value, id));
