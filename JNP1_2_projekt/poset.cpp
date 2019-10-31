@@ -198,7 +198,38 @@ namespace {
             }
         }
     }
-    /*Usuwa krawędź z value1 do value2, nie sprawdza czy taka krawędź istnieje.*/
+    /* Usuwa krawędź z value1 do value2, nie sprawdza czy taka krawędź istnieje.*/
+
+    void keep_transitive(unsigned long id, char const *value1, char const *value2) {
+
+        string previous = value1;
+        string next = value2;
+
+        poset *p = &(the_posets()[id]);
+        //Dla każdego wierzchołka do którego prowadzi krawędź z value1, dodaje
+        //krawędź prowadzącą od value2, żeby nie przerwać przechodniości
+        auto it_poset = (*p).find(next);
+        if (it_poset != (*p).end()) {
+            for (auto &[name, direction] : it_poset->second) {
+                if (direction == 1) {
+                    poset_add_no_cerr(id, previous.c_str(), name.c_str());
+                }
+            }
+        }
+
+        //Dla każdego wierzchołka który prowadzi do value1, daje krawędź
+        //prowadzącą do value2
+        it_poset = (*p).find(previous);
+        if (it_poset != (*p).end()) {
+            for (auto &[name, direction] : it_poset->second) {
+                if (direction == 0) {
+                    poset_add_no_cerr(id, name.c_str(), next.c_str());
+                }
+            }
+        }
+    }
+    /* Część poset_del, po usunięciu krawędzi uzupełnia poset tak, aby
+    *  pozostał przechodni.*/
 }
 
 /* Przestrzeń nazw zawierająca funkcje wypisujące na standardowe wyjście
@@ -233,7 +264,7 @@ namespace log {
        }
    }
 
-   void poset_insert_remove_start (string inquiry,unsigned long id, 
+   void poset_insert_remove_start (string inquiry,unsigned long id,
            char const*value) {
        if (debug) {
            std::cerr << inquiry << "(" << id << ", \""
@@ -246,28 +277,28 @@ namespace log {
        if (debug)
            std::cerr << inquiry << ": invalid value (NULL)\n";
    }
-   
+
    void poset_insert_again(unsigned long id, char const *value) {
        if (debug) {
            std::cerr << "poset_insert: poset " << id << ", element \""
                      << string(value) << "\" already exists\n";
        }
    }
-   
+
    void poset_insert_success(unsigned long id, char const *value) {
        if (debug) {
            std::cerr << "poset_insert: poset " << id << ", element \""
                      << string(value) << "\" inserted\n";
        }
    }
-   
+
    void poset_remove_no_element(unsigned long id, char const *value) {
        if (debug) {
            std::cerr << "poset_remove: poset " << id << ", element \""
                      << string(value) << "\" does not exist\n";
        }
    }
-   
+
    void poset_remove_success(unsigned long id, char const *value) {
        if (debug) {
            std::cerr << "poset_remove: poset " << id << ", element \""
@@ -418,24 +449,14 @@ extern "C" {
 
         //Usuwam krawędzie z previous do next i z next to previous.
         remove_edge(id, value1, value2);
-        
-        poset *p = &(the_posets()[id]);
-        //Dla każdego wierzchołka do którego prowadzi krawędź z next, dodaje
-        //krawędź prowadzącą od previous, żeby nie przerwać przechodniości
-        auto it_poset = (*p).find(next);
-        if (it_poset != (*p).end()) {
-            for (auto &[name, direction] : it_poset->second) {
-                if (direction == 1) {
-                    poset_add(id, previous.c_str(), name.c_str());
-                }
-            }
-        }
+        keep_transitive(id, value1, value2);
 
         assert(!test_DFS(id, value1, value2));
         log::poset_add_remove_success(id, value1, value2,
                 "poset_del", "deleted");
         return true;
     }
+
 
     bool poset_test(unsigned long id, char const *value1, char const *value2) {
         if (!check_inquiry_correctness("poset_test", id, value1, value2))
@@ -463,5 +484,3 @@ extern "C" {
         log::success(id, "poset_clear", "cleared");
     }
 }
-
-
