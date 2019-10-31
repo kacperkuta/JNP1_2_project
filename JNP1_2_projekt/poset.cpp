@@ -12,6 +12,7 @@ using relations = std::map<string, bool>;
 using poset = std::unordered_map<string, relations>;
 using all_posets = std::unordered_map<unsigned long, poset>;
 
+
 #ifdef NDEBUG
     bool debug = {false};
 #else
