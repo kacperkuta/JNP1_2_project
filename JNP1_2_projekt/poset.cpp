@@ -80,10 +80,10 @@ namespace {
             return true;
 
         relations r = the_posets()[id][previous];
-        for (auto &[name, direction] : r) {
-            if (next.compare(name) == 0 && direction == 1)
-                return true;
-        }
+
+        auto it_relation = r.find(next);
+        if(it_relation != r.end() && it_relation->second == 1)
+            return true;
 
         for (auto &[name, direction] : r) {
             if (direction == 1) {
@@ -97,19 +97,24 @@ namespace {
     *  rekurencyjnie (tak jak DFS) w celu sprawdzenia czy istnieje
     *  połączenie z value1 do value2.*/
 
-    bool poset_test_direct(unsigned long id, char const *value1,
+    bool poset_test_transitive(unsigned long id, char const *value1,
                            char const *value2) {
         string previous = value1;
         string next = value2;
         relations r = the_posets()[id][previous];
 
         for (auto &[name, direction] : r) {
-            if (next.compare(name) == 0 && direction == 1)
-                return true;
+            if (direction == 1 && name != next) {
+                if (test_DFS(id, name.c_str(), value2)) {
+                    return false;
+                }
+            }
         }
-        return false;
+
+        return true;
     }
-    /* Sprawdza czy value2 jest bezpośrednim następnikiem value1.*/
+    /* Sprawdza czy usuniecie relacji value1 -> value2 przerwie przechodniosc
+    *  zwraca true, jesli relacje można usunac*/
 
     bool check_inquiry_correctness(string inquiry_name, unsigned long id,
             char const *value1, char const *value2) {
@@ -120,6 +125,7 @@ namespace {
                       << ((value2 == nullptr) ? "NULL" : string(value2))
                       << "\")\n";
         }
+
         if (!poset_exists(id)) {
             if (debug) {
                 std::cerr << inquiry_name << ": poset " << id
@@ -158,186 +164,139 @@ namespace {
         string previous = value1;
         string next = value2;
 
-        for (auto &[node, relation] : (*p)) {
-            if (previous.compare(node) == 0) {
-                relation.insert({next, 1});
-            }
-            if (next.compare(node) == 0) {
-                relation.insert({previous, 0});
-            }
-        }
+        auto it_poset = (*p).find(previous);
+        if(it_poset != (*p).end())
+            it_poset->second.insert({next, 1});
+
+        it_poset = (*p).find(next);
+        if(it_poset != (*p).end())
+            it_poset->second.insert({previous, 0});
     }
     /* Dodaje relację między istniejącymi elementami posetu. Nie wypisuje na
      * cerr informacji diagnostycznych.*/
-}
 
-/* Przestrzeń nazw zawierająca funkcje wypisujące na standardowe wyjście
- * diagostyczne. */
-namespace log {
-    void function_start(string inquiry, unsigned long id) {
-        if (debug)
-            std::cerr << inquiry << "(" << id << ")\n";
-    }
+    void remove_edge(unsigned long id, const char* value1, const char* value2) {
+        poset *p = &(the_posets()[id]);
+        string previous = value1;
+        string next = value2;
 
-   void no_poset(string inquiry, unsigned long id) {
-        if (debug) {
-            std::cerr << inquiry << ": poset " << id
-                      << " does not exist\n";
+        //Usuwa krawędź z previous do next.
+        auto it_poset = (*p).find(previous);
+        if (it_poset != (*p).end()) {
+            auto it_relation = it_poset->second.find(next);
+            if (it_relation != it_poset->second.end() && it_relation->second == 1) {
+                it_poset->second.erase(it_relation->first);
+            }
+        }
+        //Usuwa krawędź z next do previous.
+        it_poset = (*p).find(next);
+        if (it_poset != (*p).end()) {
+            auto it_relation = it_poset->second.find(previous);
+            if (it_relation != it_poset->second.end() && it_relation->second == 0) {
+                it_poset->second.erase(it_relation->first);
+            }
         }
     }
+    /*Usuwa krawędź z value1 do value2, nie sprawdza czy taka krawędź istnieje.*/
 
-    void success(unsigned long id, string inquiry, string effect) {
-        if (debug)
-            std::cerr << inquiry << ": poset " << id << " " << effect << "\n";
-    }
-
-   void poset_new_start() {
-        if (debug)
-            std::cerr << "poset_new()\n";
-   }
-
-   void poset_size_success(unsigned long id, size_t result) {
-       if (debug) {
-           std::cerr << "poset_size: poset " << id << " contains "
-                     << result << " element(s)\n";
-       }
-   }
-
-   void poset_insert_remove_start (string inquiry,unsigned long id, 
-           char const*value) {
-       if (debug) {
-           std::cerr << inquiry << "(" << id << ", \""
-                     << ((value == nullptr) ?
-                         "NULL" : string(value)) << "\")\n";
-       }
-   }
-
-   void poset_insert_remove_NULL(string inquiry) {
-       if (debug)
-           std::cerr << inquiry << ": invalid value (NULL)\n";
-   }
-   
-   void poset_insert_again(unsigned long id, char const *value) {
-       if (debug) {
-           std::cerr << "poset_insert: poset " << id << ", element \""
-                     << string(value) << "\" already exists\n";
-       }
-   }
-   
-   void poset_insert_success(unsigned long id, char const *value) {
-       if (debug) {
-           std::cerr << "poset_insert: poset " << id << ", element \""
-                     << string(value) << "\" inserted\n";
-       }
-   }
-   
-   void poset_remove_no_element(unsigned long id, char const *value) {
-       if (debug) {
-           std::cerr << "poset_remove: poset " << id << ", element \""
-                     << string(value) << "\" does not exist\n";
-       }
-   }
-   
-   void poset_remove_success(unsigned long id, char const *value) {
-       if (debug) {
-           std::cerr << "poset_remove: poset " << id << ", element \""
-                     << string(value) << "\" removed\n";
-       }
-   }
-
-   void poset_add_remove_success(unsigned long id, char const *value1,
-           char const *value2, string inquiry, string effect) {
-       if (debug) {
-           std::cerr << inquiry << ": poset " << id << ", relation (\""
-                     << string(value1) << "\", \"" << string(value2)
-                     << "\") " << effect << "\n";
-       }
-   }
-
-   void poset_add_remove_failure(unsigned long id, char const *value1,
-           char const *value2, string inquiry, string effect) {
-       if (debug) {
-           std::cerr << inquiry << ": poset " << id << ", relation (\""
-                     << string(value1) << "\", \"" << string(value2)
-                     << "\") cannot be " << effect << "\n";
-       }
-   }
-
-   void poset_test_result(unsigned long id, char const *value1,
-           char const *value2, bool result) {
-       if (debug) {
-           std::cerr << "poset_test: poset " << id << ", relation (\""
-                     << string(value1) << "\", \"" << string(value2) << "\") "
-                     << (result ? "exists\n" : "does not exist\n");
-       }
-   }
 }
 
 extern "C" {
     unsigned long poset_new() {
-        log::poset_new_start();
+        if (debug)
+            std::cerr << "poset_new()\n";
         poset p;
         unsigned long id = choose_new_id();
         the_posets().insert(std::make_pair(id, p));
         assert(poset_exists(id));
-        log::success(id, "poset_new", "created");
+        if (debug)
+            std::cerr << "poset_new: poset " << id << " created\n";
         return id;
     }
 
     void poset_delete(unsigned long id) {
-        log::function_start("poset_delete", id);
+        if (debug)
+            std::cerr << "poset_delete(" << id << ")\n";
         if (poset_exists(id)) {
             the_posets().erase(id);
             the_free_ids().push(id);
-            log::success(id, "poset_delete", "deleted");
-        } else {
-            log::no_poset("poset_delete", id);
+            if (debug)
+                std::cerr << "poset_delete: poset " << id << " deleted\n";
+        } else if (debug) {
+            std::cerr << "poset_delete: poset " << id << " does not exist\n";
         }
     }
 
     size_t poset_size(unsigned long id) {
-        log::function_start("poset_size", id);
+        if (debug)
+            std::cerr << "poset_size(" << id << ")\n";
         if (poset_exists(id)) {
             poset p = the_posets()[id];
-            size_t result = p.size();
-            log::poset_size_success(id, result);
-            return result;
+            if (debug) {
+                std::cerr << "poset_size: poset " << id << " contains "
+                          << p.size()
+                          << " element(s)\n";
+            }
+            return p.size();
         }
         assert(!poset_exists(id));
-        log::no_poset("poset_size", id);
+        if (debug)
+            std::cerr << "poset_size: poset " << id << " does not exist\n";
         return 0;
     }
 
     bool poset_insert(unsigned long id, char const *value) {
-        log::poset_insert_remove_start("poset_insert", id, value);
+        if (debug) {
+            std::cerr << "poset_insert(" << id << ", \""
+                      << ((value == nullptr) ?
+                          "NULL" : string(value)) << "\")\n";
+        }
         if (value == nullptr) {
-            log::poset_insert_remove_NULL("poset_insert");
+            if (debug)
+                std::cerr << "poset_insert: invalid value (NULL)\n";
             return false;
         } else if (!poset_exists(id)) {
-            log::no_poset("poset_insert", id);
+            if (debug)
+                std::cerr << "poset_insert: poset " << id
+                          << " does not exist\n";
             return false;
         } else if (is_in_poset(value, id)) {
-            log::poset_insert_again(id, value);
+            if (debug) {
+                std::cerr << "poset_insert: poset " << id << ", element \""
+                          << string(value) << "\" already exists\n";
+            }
             return false;
         }
         poset *p = &(the_posets()[id]);
         string insert_value = string(value);
         p->insert(std::make_pair(insert_value, std::map<string, bool>()));
         assert(is_in_poset(value, id));
-        log::poset_insert_success(id, value);
+        if (debug) {
+            std::cerr << "poset_insert: poset " << id << ", element \""
+                      << string(value) << "\" inserted\n";
+        }
         return true;
     }
 
     bool poset_remove(unsigned long id, char const *value) {
-        log::poset_insert_remove_start("poset_remove", id, value);
+        if (debug) {
+            std::cerr << "poset_remove(" << id << ", \""
+                      << ((value == nullptr) ? "NULL" : string(value))
+                      << "\")\n";
+        }
         if (!poset_exists(id)) {
-            log::no_poset("poset_remove", id);
+            if (debug)
+                std::cerr << "poset_remove: poset " << id << " does not exist\n";
             return false;
         } else if (value == nullptr) {
-            log::poset_insert_remove_NULL("poset_remove");
+            if (debug)
+                std::cerr << "poset_remove: invalid value (NULL)\n";
             return false;
         } else if (!is_in_poset(value, id)) {
-            log::poset_remove_no_element(id, value);
+            if (debug) {
+                std::cerr << "poset_remove: poset " << id << ", element \""
+                          << string(value) << "\" does not exist\n";
+            }
             return false;
         }
         switch_edges(id, value);
@@ -351,7 +310,10 @@ extern "C" {
         poset *p = &(the_posets()[id]);
         p->erase(string(value));
         assert(!is_in_poset(value, id));
-        log::poset_remove_success(id, value);
+        if (debug) {
+            std::cerr << "poset_remove: poset " << id << ", element \""
+                      << string(value) << "\" removed\n";
+        }
         return true;
     }
 
@@ -361,14 +323,22 @@ extern "C" {
 
         if (test_DFS(id, value1, value2) ||
                 test_DFS(id, value2, value1)) {
-            log::poset_add_remove_failure(id, value1, value2,
-                    "poset_add", "added");
+            if (debug) {
+                std::cerr << "poset_add: poset " << id << ", relation (\""
+                          << string(value1) << "\", \"" << string(value2)
+                          << "\") cannot be added\n";
+            }
             return false;
         }
 
         poset_add_no_cerr(id, value1, value2);
         assert(test_DFS(id, value1, value2));
-        log::poset_add_remove_success(id, value1, value2, "poset_add", "added");
+
+        if (debug) {
+            std::cerr << "poset_add: poset " << id << ", relation (\""
+                      << string(value1) << "\", \"" << string(value2)
+                      << "\") added\n";
+        }
         return true;
     }
 
@@ -376,49 +346,25 @@ extern "C" {
         if (!check_inquiry_correctness("poset_del", id, value1, value2))
             return false;
 
-        string previous = value1;
-        string next = value2;
-
-        if (!poset_test_direct(id, value1, value2) || previous == next) {
-            log::poset_add_remove_failure(id, value1, value2,
-                                          "poset_del", "deleted");
+        if (!poset_test_transitive(id, value1, value2) ||
+            !test_DFS(id, value1, value2) || value1 == value2) {
+            if (debug) {
+                std::cerr << "poset_del: poset " << id << ", relation (\""
+                          << string(value1) << "\", \"" << string(value2)
+                          << "\") cannot be deleted\n";
+            }
             return false;
         }
-        poset *p = &(the_posets()[id]);
 
         //Usuwam krawędzie z previous do next i z next to previous.
-        auto it_poset = (*p).find(previous);
-        if (it_poset != (*p).end()) {
-			auto it_relation = it_poset->second.find(next);
-			if (it_relation != it_poset->second.end() && 
-			        it_relation->second == 1) {
-				it_poset->second.erase(it_relation->first);
-			}
-		}
-
-		it_poset = (*p).find(next);
-        if (it_poset != (*p).end()) {
-			auto it_relation = it_poset->second.find(previous);
-			if (it_relation != it_poset->second.end() && 
-			        it_relation->second == 0) {
-				it_poset->second.erase(it_relation->first);
-			}
-		}
-
-        //Dla każdego wierzchołka do którego prowadzi krawędź z next, dodaje
-        //krawędź prowadzącą od previous, żeby nie przerwać przechodniości
-        it_poset = (*p).find(next);
-        if (it_poset != (*p).end()) {
-            for (auto &[name, direction] : it_poset->second) {
-                if (direction == 1) {
-                    poset_add(id, previous.c_str(), name.c_str());
-                }
-            }
-        }
+        remove_edge(id, value1, value2);
 
         assert(!test_DFS(id, value1, value2));
-        log::poset_add_remove_success(id, value1, value2,
-                "poset_del", "deleted");
+        if (debug) {
+            std::cerr << "poset_del: poset " << id << ", relation (\""
+                      << string(value1) << "\", \"" << string(value2)
+                      << "\") deleted\n";
+        }
         return true;
     }
 
@@ -427,14 +373,20 @@ extern "C" {
             return false;
 
         bool result =  test_DFS(id, value1, value2);
-        log::poset_test_result(id, value1, value2, result);
+        if (debug) {
+            std::cerr << "poset_test: poset " << id << ", relation (\""
+                      << string(value1) << "\", \"" << string(value2) << "\") "
+                      << (result ? "exists\n" : "does not exist\n");
+        }
         return result;
     }
 
     void poset_clear(unsigned long id) {
-        log::function_start("poset clear", id);
+        if (debug)
+            std::cerr << "poset_clear(" << id << ")\n";
         if (!poset_exists(id)) {
-            log::no_poset("poset_clear", id);
+            if (debug)
+                std::cerr << "poset_clear: poset " << id << " does not exist\n";
             return;
         }
 
@@ -445,8 +397,7 @@ extern "C" {
         }
         (*p).clear();
         assert(poset_exists(id) && p->empty());
-        log::success(id, "poset_clear", "cleared");
+        if (debug)
+            std::cerr << "poset_clear: poset " << id << " cleared\n";
     }
 }
-
-
